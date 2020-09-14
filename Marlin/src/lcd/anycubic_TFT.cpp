@@ -28,7 +28,6 @@
 #include "../core/macros.h"
 #include "../core/serial.h"
 #include "../gcode/queue.h"
-#include "../feature/bedlevel/mbl/mesh_bed_leveling.h"
 #include "../feature/emergency_parser.h"
 #include "../feature/pause.h"
 #include "../inc/MarlinConfig.h"
@@ -166,7 +165,7 @@ void AnycubicTFTClass::StartPrint() {
       card.startFileprint();
       TFTstate=ANYCUBIC_TFT_STATE_SDPRINT;
       #ifdef ANYCUBIC_TFT_DEBUG
-        SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+        SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
         SERIAL_EOL();
         SERIAL_ECHOLNPGM("DEBUG: Regular Start");
       #endif
@@ -175,7 +174,7 @@ void AnycubicTFTClass::StartPrint() {
       // regular sd pause
       queue.enqueue_now_P(PSTR("M24")); // unpark nozzle
       #ifdef ANYCUBIC_TFT_DEBUG
-        SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+        SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
         SERIAL_EOL();
         SERIAL_ECHOLNPGM("DEBUG: M24 Resume from regular pause");
       #endif
@@ -185,14 +184,14 @@ void AnycubicTFTClass::StartPrint() {
       TFTstate=ANYCUBIC_TFT_STATE_SDPRINT;
       ai3m_pause_state = 0;
       #ifdef ANYCUBIC_TFT_DEBUG
-        SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+        SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
         SERIAL_EOL();
       #endif
       break;
     case 2:
       // paused by M600
       #ifdef ANYCUBIC_TFT_DEBUG
-        SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+        SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
         SERIAL_EOL();
         SERIAL_ECHOLNPGM("DEBUG: Start M108 routine");
       #endif
@@ -252,7 +251,7 @@ void AnycubicTFTClass::PausePrint() {
     if(ai3m_pause_state < 2) { // is this a regular pause?
       card.pauseSDPrint(); // pause print regularly
       #ifdef ANYCUBIC_TFT_DEBUG
-        SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+        SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
         SERIAL_EOL();
         SERIAL_ECHOLNPGM("DEBUG: Regular Pause");
       #endif
@@ -276,7 +275,7 @@ void AnycubicTFTClass::PausePrint() {
       ai3m_pause_state = 3;
       #ifdef ANYCUBIC_TFT_DEBUG
         SERIAL_ECHOLNPGM("DEBUG: M25 sent, parking nozzle");
-        SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+        SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
         SERIAL_EOL();
       #endif
       IsParked = true;
@@ -307,7 +306,7 @@ void AnycubicTFTClass::StopPrint(){
   // turn off fan, cancel any heatups and set display state
   ai3m_pause_state = 0;
   #ifdef ANYCUBIC_TFT_DEBUG
-    SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+    SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
     SERIAL_EOL();
   #endif
   #if FAN_COUNT > 0
@@ -339,7 +338,7 @@ void AnycubicTFTClass::FilamentChangePause(){
   // gets used when the user hits CONTINUE
   ai3m_pause_state = 2;
   #ifdef ANYCUBIC_TFT_DEBUG
-    SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+    SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
     SERIAL_EOL();
   #endif
 
@@ -369,7 +368,7 @@ void AnycubicTFTClass::ReheatNozzle(){
   if (ai3m_pause_state > 3) {
   ai3m_pause_state -= 2;
   #ifdef ANYCUBIC_TFT_DEBUG
-    SERIAL_ECHOPAIR(" DEBUG: NTO done, AI3M Pause State: ", ai3m_pause_state);
+    SERIAL_ECHOPAIR(" DEBUG: NTO done, AC Pause State: ", ai3m_pause_state);
     SERIAL_EOL();
   #endif
   }
@@ -399,7 +398,7 @@ void AnycubicTFTClass::ParkAfterStop(){
   queue.enqueue_now_P(PSTR("M84")); // disable stepper motors
   ai3m_pause_state = 0;
   #ifdef ANYCUBIC_TFT_DEBUG
-    SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+    SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
     SERIAL_EOL();
   #endif
 }
@@ -438,12 +437,19 @@ void AnycubicTFTClass::HandleSpecialMenu()
   } else if (strcmp(SelectedDirectory, "<preheat bed>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Preheat Bed");
     queue.enqueue_now_P(PSTR("M140 S60"));
-  } else if (strcmp(SelectedDirectory, "<start mesh leveling>")==0) {
-    SERIAL_ECHOLNPGM("Special Menu: Start Mesh Leveling");
-    queue.enqueue_now_P(PSTR("G29 S1"));
-  } else if (strcmp(SelectedDirectory, "<next mesh point>")==0) {
-    SERIAL_ECHOLNPGM("Special Menu: Next Mesh Point");
-    queue.enqueue_now_P(PSTR("G29 S2"));
+  } else if (strcmp(SelectedDirectory, "<start auto leveling>")==0) {
+    SERIAL_ECHOLNPGM("Special Menu: Auto Leveling");
+    queue.enqueue_now_P(PSTR("G28\nG29"));
+  } else if (strcmp(SelectedDirectory, "<anycubic automatic level>")==0) {
+    SERIAL_ECHOLNPGM("Special Menu: Anycubic Automatic Level");
+    queue.enqueue_now_P(PSTR("M140 S0\nM104 S0\nM1001"));
+    buzzer.tone(105, 1661);
+    buzzer.tone(210, 1108);
+  } else if (strcmp(SelectedDirectory, "<anycubic manual level>")==0) {
+	SERIAL_ECHOLNPGM("Special Menu: Anycubic Manual Level");
+	queue.enqueue_now_P(PSTR("M140 S0\nM104 S0\nM1000"));
+    buzzer.tone(105, 1661);
+    buzzer.tone(210, 1108);
   } else if (strcmp(SelectedDirectory, "<z up 0.1>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: Z Up 0.1");
     queue.enqueue_now_P(PSTR("G91\nG1 Z+0.1\nG90"));
@@ -462,6 +468,23 @@ void AnycubicTFTClass::HandleSpecialMenu()
   } else if (strcmp(SelectedDirectory, "<filamentchange resume>")==0) {
     SERIAL_ECHOLNPGM("Special Menu: FilamentChange Resume");
     FilamentChangeResume();
+  } else if (strcmp(SelectedDirectory, "<begin z offset calibration>")==0) {
+    SERIAL_ECHOLNPGM("Special Menu: Z Offset Calibration");
+    queue.enqueue_now_P(PSTR("G28\nM211 S0\nG1 X220 Y220 Z5\nG1 Z1"));
+  } else if (strcmp(SelectedDirectory, "<save z offset calibration>")==0) {
+	SERIAL_ECHOLNPGM("Special Menu: Save Z Offset");
+	char zOffset[30];
+	sprintf_P(zOffset, PSTR("M851 Z%s\nM500\nM501\nM211 S1"), current_position[Z_AXIS]);
+	queue.enqueue_now_P(zOffset);
+  } else if (strcmp(SelectedDirectory, "<begin z offset calibration>")==0) {
+ 	 SERIAL_ECHOLNPGM("Special Menu: Z Offset Calibration");
+ 	 queue.enqueue_now_P(PSTR("G28\nM211 S0\nG1 X220 Y220 Z5\nG1 Z1"));
+  } else if (strcmp(SelectedDirectory, "<probe accuracy test>")==0) {
+ 	 SERIAL_ECHOLNPGM("Special Menu: Probe Accuracy Test");
+ 	 queue.enqueue_now_P(PSTR("M48 P10 X100 Y100 V2"));
+	 //Echo String
+ 	 ANYCUBIC_SERIAL_PROTOCOLPGM("J01"); // J01 SD Card removed
+
   } else if (strcmp(SelectedDirectory, "<exit>")==0) {
     SpecialMenu=false;
   }
@@ -485,30 +508,47 @@ void AnycubicTFTClass::Ls()
       case 4: // Second Page
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Preheat bed>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Preheat bed>");
-      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Start Mesh Leveling>");
-      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Start Mesh Leveling>");
-      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Next Mesh Point>");
-      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Next Mesh Point>");
-      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Save EEPROM>");
-      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Save EEPROM>");
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Start Auto Leveling>");
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Start Auto Leveling>");
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Anycubic Automatic Level>");
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Anycubic Automatic Level>");
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Anycubic Manual Level>");
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Anycubic Manual Level>");
       break;
 
       case 8: // Third Page
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Save EEPROM>");
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Save EEPROM>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Exit>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Exit>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Auto Tune Hotend PID>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Auto Tune Hotend PID>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Auto Tune Hotbed PID>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Auto Tune Hotbed PID>");
-      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Load FW Defaults>");
-      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Load FW Defaults>");
+
       break;
 
       case 12: // Fourth Page
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Load FW Defaults>");
+      ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Load FW Defaults>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<FilamentChange Pause>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<FilamentChange Pause>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<FilamentChange Resume>");
       ANYCUBIC_SERIAL_PROTOCOLLNPGM("<FilamentChange Resume>");
+	  ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Begin Z Offset Calibration>");
+	  ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Begin Z Offset Calibration>");
+      break;
+	  
+      case 16: // Fifth Page
+	  ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Save Z Offset Calibration>");
+	  ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Save Z Offset Calibration>");
+	  //ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Probe Accuracy Test>");
+	  //ANYCUBIC_SERIAL_PROTOCOLLNPGM("<Probe Accuracy Test>");
+	  
+	  //Probe Repeat Test - needs message afterwards
+	  //Level test - Print small circles
+	  //Axis checks??
+	  //Linear Advanced Calibration prints
       break;
 
       default:
@@ -656,7 +696,7 @@ void AnycubicTFTClass::StateHandler()
             #endif
             ai3m_pause_state = 0;
             #ifdef ANYCUBIC_TFT_DEBUG
-              SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+              SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
               SERIAL_EOL();
             #endif
           }
@@ -683,7 +723,7 @@ void AnycubicTFTClass::StateHandler()
             // no flags, this is a regular pause.
             ai3m_pause_state = 1;
             #ifdef ANYCUBIC_TFT_DEBUG
-              SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+              SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
               SERIAL_EOL();
               SERIAL_ECHOLNPGM("DEBUG: Regular Pause requested");
             #endif
@@ -767,7 +807,7 @@ void AnycubicTFTClass::FilamentRunout()
           if(card.isPrinting()) {
             ai3m_pause_state = 3;; // set runout pause flag
             #ifdef ANYCUBIC_TFT_DEBUG
-              SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+              SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
               SERIAL_EOL();
             #endif
             PausePrint();
@@ -946,7 +986,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
               {
                 ai3m_pause_state = 0;
                 #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+                  SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
                   SERIAL_EOL();
                 #endif
                 StopPrint();
@@ -980,7 +1020,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 TFTstate=ANYCUBIC_TFT_STATE_IDLE;
                 ai3m_pause_state = 0;
                 #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+                  SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
                   SERIAL_EOL();
                 #endif
               }
@@ -1028,7 +1068,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
               {
                 ai3m_pause_state = 0;
                 #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOPAIR(" DEBUG: AI3M Pause State: ", ai3m_pause_state);
+                  SERIAL_ECHOPAIR(" DEBUG: AC Pause State: ", ai3m_pause_state);
                   SERIAL_EOL();
                 #endif
                 StartPrint();
@@ -1259,12 +1299,12 @@ void AnycubicTFTClass::GetCommandFromTFT()
                   if(CodeSeen('Y')) { y = CodeValue(); }
 
                   ANYCUBIC_SERIAL_PROTOCOLPGM("A29V ");
-                  ANYCUBIC_SERIAL_PROTOCOL_F( LINEAR_UNIT(mbl.z_values[x][y]) * 100, 3 );
+                  ANYCUBIC_SERIAL_PROTOCOL_F( LINEAR_UNIT(z_values[x][y]) * 100, 3 );
                   ANYCUBIC_SERIAL_ENTER();
                   #ifdef ANYCUBIC_TFT_DEBUG
                     
                     SERIAL_ECHOPGM("A29V ");
-                    SERIAL_ECHO_F( LINEAR_UNIT(mbl.z_values[x][y]), 5 );
+                    SERIAL_ECHO_F( LINEAR_UNIT(z_values[x][y]), 5 );
                     SERIAL_ECHOLNPGM(">");
                   #endif
 
@@ -1352,7 +1392,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                     tempZ += value;
                     for (uint8_t x = 0; x < GRID_MAX_POINTS_X; x++)
                       for (uint8_t y = 0; y < GRID_MAX_POINTS_Y; y++) {
-                        mbl.z_values[x][y] += value;
+                        z_values[x][y] += value;
                       }
                     
                     ANYCUBIC_SERIAL_PROTOCOLPGM("A31V ");
@@ -1365,7 +1405,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                       SERIAL_ECHO(tempZ);
                       SERIAL_ECHOLNPGM(">");
                     #endif
-                    reset_bed_level();
+                    refresh_bed_level();
                   }
                   if(CodeSeen('G'))
                   {
@@ -1380,7 +1420,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                     #endif
                     for (uint8_t x = 0; x < GRID_MAX_POINTS_X; x++)
                       for (uint8_t y = 0; y < GRID_MAX_POINTS_Y; y++) {
-                        temp_z_values[x][y] = mbl.z_values[x][y];
+                        temp_z_values[x][y] = z_values[x][y];
                       }
                   }
                   if(CodeSeen('D'))
@@ -1390,7 +1430,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                     SERIAL_ECHOLNPGM(">");
                     for (uint8_t x = 0; x < GRID_MAX_POINTS_X; x++)
                       for (uint8_t y = 0; y < GRID_MAX_POINTS_Y; y++) {
-                        mbl.z_values[x][y] = temp_z_values[x][y];
+                        z_values[x][y] = temp_z_values[x][y];
                       }
                       probe_offset.z = tempZ;
                       queue.enqueue_now_P(PSTR("M420 S1"));
@@ -1427,11 +1467,11 @@ void AnycubicTFTClass::GetCommandFromTFT()
             if(CodeSeen('V'))
             {
               temp_z_values[x][y] = (float)constrain(CodeValue()/100,-10,10);
-              reset_bed_level();
+              refresh_bed_level();
             }
             if(CodeSeen('S'))
             {
-              reset_bed_level();
+              refresh_bed_level();
               //set_bed_leveling_enabled(true);
               queue.enqueue_now_P(PSTR("M420 S1"));
               settings.save();
@@ -1443,7 +1483,7 @@ void AnycubicTFTClass::GetCommandFromTFT()
                 for (uint8_t y = 0; y < GRID_MAX_POINTS_Y; y++) {
                   temp_z_values[x][y] = NAN;
                 }
-              reset_bed_level();
+              refresh_bed_level();
               set_bed_leveling_enabled(true);
             }
 
